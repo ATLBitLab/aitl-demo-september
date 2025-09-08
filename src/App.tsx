@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { SingleKey, Wallet } from '@arkade-os/sdk';
 import { 
   BuiButtonReact as BuiButton, 
   BuiInputReact as BuiInput,
@@ -13,7 +14,9 @@ interface WalletState {
   isInitialized: boolean;
   balance: number;
   address: string;
+  boardingAddress: string;
   isConnected: boolean;
+  wallet?: Wallet;
 }
 
 type AppView = 'welcome' | 'confirm' | 'wallet' | 'send' | 'receive' | 'send-review';
@@ -24,6 +27,7 @@ function App() {
     isInitialized: false,
     balance: 0,
     address: '',
+    boardingAddress: '',
     isConnected: false
   });
   const [sendAmount, setSendAmount] = useState<string>('');
@@ -45,11 +49,29 @@ function App() {
           const walletData = JSON.parse(savedWallet);
           console.log('Restoring wallet from localStorage:', walletData);
           
+          // Try to restore the wallet instance if we have a private key
+          let walletInstance = undefined;
+          if (walletData.privateKey) {
+            try {
+              const privateKey = SingleKey.fromHex(walletData.privateKey);
+              walletInstance = await Wallet.create({
+                identity: privateKey,
+                arkServerUrl: 'https://ark.arkadefi.com',
+                esploraUrl: 'https://mempool.space/api'
+              });
+              console.log('Wallet instance restored from private key');
+            } catch (error) {
+              console.log('Could not restore wallet instance:', error);
+            }
+          }
+          
           setWalletState({
             isInitialized: true,
             balance: walletData.balance || 0,
             address: walletData.address || '',
-            isConnected: true
+            boardingAddress: walletData.boardingAddress || '',
+            isConnected: true,
+            wallet: walletInstance
           });
           
           setCurrentView('wallet');
@@ -90,25 +112,40 @@ function App() {
       // Create the actual wallet when user confirms
       console.log('Creating Ark wallet with confirmations...');
       
-      // Simulate wallet creation with ArkadeOS SDK
-      // In a real app, you'd use:
-      // const wallet = await Wallet.create({
-      //   identity: SingleKey.fromHex('your_private_key'),
-      //   arkServerUrl: 'https://ark.example.com',
-      //   esploraUrl: 'https://mempool.space/api'
-      // });
+      // Generate a new private key for demo purposes
+      // In production, you'd want to use a more secure method
+      const privateKey = SingleKey.generate();
+      console.log('Generated private key:', privateKey.toHex());
+      
+      // Create wallet with ArkadeOS SDK
+      const wallet = await Wallet.create({
+        identity: privateKey,
+        arkServerUrl: 'https://ark.arkadefi.com',
+        esploraUrl: 'https://mempool.space/api'
+      });
+      
+      // Get the Ark address and boarding address
+      const arkAddress = await wallet.getAddress();
+      const boardingAddress = await wallet.getBoardingAddress();
+      
+      console.log('Ark Address:', arkAddress);
+      console.log('Boarding Address:', boardingAddress);
       
       const newWalletState = {
         isInitialized: true,
         balance: 0.00123456, // Demo balance
-        address: 'bc1p...ark-demo-address',
-        isConnected: true
+        address: arkAddress,
+        boardingAddress: boardingAddress,
+        isConnected: true,
+        wallet: wallet
       };
       
-      // Save wallet to localStorage
+      // Save wallet to localStorage (excluding the wallet instance)
       const walletData = {
         balance: newWalletState.balance,
-        address: newWalletState.address,
+        address: arkAddress,
+        boardingAddress: boardingAddress,
+        privateKey: privateKey.toHex(), // Store private key for restoration
         createdAt: new Date().toISOString(),
         version: '1.0.0'
       };
@@ -120,6 +157,28 @@ function App() {
       setCurrentView('wallet');
     } catch (error) {
       console.error('Error creating wallet:', error);
+      // Fallback to demo wallet if Ark server is not available
+      console.log('Falling back to demo wallet...');
+      
+      const newWalletState = {
+        isInitialized: true,
+        balance: 0.00123456,
+        address: 'bc1p...ark-demo-address',
+        boardingAddress: 'bc1p...boarding-demo-address',
+        isConnected: true
+      };
+      
+      const walletData = {
+        balance: newWalletState.balance,
+        address: newWalletState.address,
+        boardingAddress: newWalletState.boardingAddress,
+        createdAt: new Date().toISOString(),
+        version: '1.0.0'
+      };
+      
+      localStorage.setItem('ark-wallet', JSON.stringify(walletData));
+      setWalletState(newWalletState);
+      setCurrentView('wallet');
     }
   };
 
@@ -174,6 +233,7 @@ function App() {
       isInitialized: false,
       balance: 0,
       address: '',
+      boardingAddress: '',
       isConnected: false
     });
     setCurrentView('welcome');
@@ -293,9 +353,11 @@ function App() {
         <h2>₿ {walletState.balance.toFixed(8)}</h2>
         <p>$ {(walletState.balance * 100000).toFixed(2)}</p>
         
-        {/* Debug info - remove in production */}
-        <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
-          Wallet saved in localStorage: {localStorage.getItem('ark-wallet') ? '✓' : '✗'}
+        {/* Show Ark addresses */}
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '8px', textAlign: 'center' }}>
+          <div>Ark Address: {walletState.address}</div>
+          <div>Boarding Address: {walletState.boardingAddress}</div>
+          <div>Wallet saved in localStorage: {localStorage.getItem('ark-wallet') ? '✓' : '✗'}</div>
         </div>
       </div>
       
@@ -390,8 +452,16 @@ function App() {
       <div className="main-content">
         <h2>Receive Bitcoin</h2>
         
+        <div style={{ fontSize: '14px', color: '#666', marginBottom: '16px', textAlign: 'center' }}>
+          Use your boarding address to receive Bitcoin
+        </div>
+        
         <div className="qr-section">
           <BuiBitcoinQrDisplay />
+        </div>
+        
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '16px', textAlign: 'center' }}>
+          <div>Boarding Address: {walletState.boardingAddress}</div>
         </div>
       </div>
       
