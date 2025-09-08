@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { SingleKey, Wallet } from '@arkade-os/sdk';
-import { utils } from '@noble/secp256k1';
 import { 
   BuiButtonReact as BuiButton, 
   BuiInputReact as BuiInput,
@@ -54,9 +53,7 @@ function App() {
           let walletInstance = undefined;
           if (walletData.privateKey) {
             try {
-              // Convert array back to Uint8Array
-              const privateKeyBytes = new Uint8Array(walletData.privateKey);
-              const privateKey = SingleKey.fromPrivateKey(privateKeyBytes);
+              const privateKey = SingleKey.fromHex(walletData.privateKey);
               walletInstance = await Wallet.create({
                 identity: privateKey,
                 arkServerUrl: 'https://ark.arkadefi.com',
@@ -117,9 +114,9 @@ function App() {
       
       // Generate a new private key for demo purposes
       // In production, you'd want to use a more secure method
-      const privateKeyBytes = utils.randomPrivateKey();
-      const privateKey = SingleKey.fromPrivateKey(privateKeyBytes);
-      console.log('Generated private key:', privateKeyBytes);
+      const privateKeyHex = Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('');
+      const privateKey = SingleKey.fromHex(privateKeyHex);
+      console.log('Generated private key:', privateKeyHex);
       
       // Create wallet with ArkadeOS SDK
       const wallet = await Wallet.create({
@@ -149,7 +146,7 @@ function App() {
         balance: newWalletState.balance,
         address: arkAddress,
         boardingAddress: boardingAddress,
-        privateKey: Array.from(privateKeyBytes), // Store private key as array for restoration
+        privateKey: privateKeyHex, // Store private key as hex string for restoration
         createdAt: new Date().toISOString(),
         version: '1.0.0'
       };
