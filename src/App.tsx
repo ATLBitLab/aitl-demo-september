@@ -56,8 +56,8 @@ function App() {
               const privateKey = SingleKey.fromHex(walletData.privateKey);
               walletInstance = await Wallet.create({
                 identity: privateKey,
-                arkServerUrl: 'https://ark.arkadefi.com',
-                esploraUrl: 'https://mempool.space/api'
+                arkServerUrl: 'https://signet.arkade.sh',
+                esploraUrl: 'https://mempool.space/signet/api'
               });
               console.log('Wallet instance restored from private key');
             } catch (error) {
@@ -118,11 +118,11 @@ function App() {
       const privateKey = SingleKey.fromHex(privateKeyHex);
       console.log('Generated private key:', privateKeyHex);
       
-      // Create wallet with ArkadeOS SDK
+      // Create wallet with ArkadeOS SDK using testnet
       const wallet = await Wallet.create({
         identity: privateKey,
-        arkServerUrl: 'https://ark.arkadefi.com',
-        esploraUrl: 'https://mempool.space/api'
+        arkServerUrl: 'https://signet.arkade.sh',
+        esploraUrl: 'https://mempool.space/signet/api'
       });
       
       // Get the Ark address and boarding address
