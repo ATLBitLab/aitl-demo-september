@@ -97,6 +97,7 @@ function App() {
         isInitialized: true,
         balance: 0,
         address: 'bc1p...demo-address',
+        boardingAddress: 'bc1p...demo-boarding-address',
         isConnected: true
       });
       
