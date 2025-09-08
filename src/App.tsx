@@ -30,15 +30,36 @@ function App() {
   const [sendAddress, setSendAddress] = useState<string>('');
   const [confirmations, setConfirmations] = useState<boolean[]>([false, false]);
 
-  // Initialize wallet
+  // Debug confirmation state changes
+  useEffect(() => {
+    console.log('Confirmation state changed:', confirmations);
+  }, [confirmations]);
+
+  // Initialize wallet from localStorage
   useEffect(() => {
     const initializeWallet = async () => {
       try {
-        // For demo purposes, we'll create a new wallet each time
-        // In a real app, you'd store the private key securely
-        console.log('Wallet initialization would happen here');
+        // Check if wallet exists in localStorage
+        const savedWallet = localStorage.getItem('ark-wallet');
+        if (savedWallet) {
+          const walletData = JSON.parse(savedWallet);
+          console.log('Restoring wallet from localStorage:', walletData);
+          
+          setWalletState({
+            isInitialized: true,
+            balance: walletData.balance || 0,
+            address: walletData.address || '',
+            isConnected: true
+          });
+          
+          setCurrentView('wallet');
+        } else {
+          console.log('No existing wallet found in localStorage');
+        }
       } catch (error) {
-        console.log('No existing wallet found');
+        console.log('Error loading wallet from localStorage:', error);
+        // Clear corrupted data
+        localStorage.removeItem('ark-wallet');
       }
     };
 
@@ -64,6 +85,44 @@ function App() {
     }
   };
 
+  const handleContinueToWallet = async () => {
+    try {
+      // Create the actual wallet when user confirms
+      console.log('Creating Ark wallet with confirmations...');
+      
+      // Simulate wallet creation with ArkadeOS SDK
+      // In a real app, you'd use:
+      // const wallet = await Wallet.create({
+      //   identity: SingleKey.fromHex('your_private_key'),
+      //   arkServerUrl: 'https://ark.example.com',
+      //   esploraUrl: 'https://mempool.space/api'
+      // });
+      
+      const newWalletState = {
+        isInitialized: true,
+        balance: 0.00123456, // Demo balance
+        address: 'bc1p...ark-demo-address',
+        isConnected: true
+      };
+      
+      // Save wallet to localStorage
+      const walletData = {
+        balance: newWalletState.balance,
+        address: newWalletState.address,
+        createdAt: new Date().toISOString(),
+        version: '1.0.0'
+      };
+      
+      localStorage.setItem('ark-wallet', JSON.stringify(walletData));
+      console.log('Wallet saved to localStorage:', walletData);
+      
+      setWalletState(newWalletState);
+      setCurrentView('wallet');
+    } catch (error) {
+      console.error('Error creating wallet:', error);
+    }
+  };
+
   const restoreWallet = () => {
     // TODO: Implement wallet restoration
     console.log('Restore wallet functionality to be implemented');
@@ -77,6 +136,28 @@ function App() {
       // In a real app, you'd use: await wallet.sendBitcoin({...})
       console.log('Sending bitcoin...', { to: sendAddress, amount: sendAmount });
       
+      // Update wallet balance (subtract sent amount)
+      const sentAmount = parseFloat(sendAmount) || 0;
+      const newBalance = Math.max(0, walletState.balance - sentAmount);
+      
+      const updatedWalletState = {
+        ...walletState,
+        balance: newBalance
+      };
+      
+      // Save updated wallet to localStorage
+      const walletData = {
+        balance: newBalance,
+        address: walletState.address,
+        createdAt: new Date().toISOString(),
+        version: '1.0.0'
+      };
+      
+      localStorage.setItem('ark-wallet', JSON.stringify(walletData));
+      console.log('Updated wallet saved to localStorage:', walletData);
+      
+      setWalletState(updatedWalletState);
+      
       // Reset form and go back to wallet
       setSendAmount('');
       setSendAddress('');
@@ -84,6 +165,43 @@ function App() {
     } catch (error) {
       console.error('Error sending bitcoin:', error);
     }
+  };
+
+  // Function to clear wallet (for testing)
+  const clearWallet = () => {
+    localStorage.removeItem('ark-wallet');
+    setWalletState({
+      isInitialized: false,
+      balance: 0,
+      address: '',
+      isConnected: false
+    });
+    setCurrentView('welcome');
+    console.log('Wallet cleared from localStorage');
+  };
+
+  // Function to simulate receiving bitcoin (for testing)
+  const simulateReceiveBitcoin = () => {
+    const receivedAmount = 0.0001; // Small amount for testing
+    const newBalance = walletState.balance + receivedAmount;
+    
+    const updatedWalletState = {
+      ...walletState,
+      balance: newBalance
+    };
+    
+    // Save updated wallet to localStorage
+    const walletData = {
+      balance: newBalance,
+      address: walletState.address,
+      createdAt: new Date().toISOString(),
+      version: '1.0.0'
+    };
+    
+    localStorage.setItem('ark-wallet', JSON.stringify(walletData));
+    console.log('Received bitcoin, updated wallet saved to localStorage:', walletData);
+    
+    setWalletState(updatedWalletState);
   };
 
 
@@ -132,12 +250,17 @@ function App() {
       <div className="main-content">
         <h2>Before we continue</h2>
         
+        {/* Debug info - remove in production */}
+        <div style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>
+          Debug: Toggle 1: {confirmations[0] ? '✓' : '✗'}, Toggle 2: {confirmations[1] ? '✓' : '✗'}
+        </div>
+        
         <div className="confirm-items">
           <div className="confirm-item">
             <p>With bitcoin, you are your own bank. No one else has access to your private keys.</p>
             <BuiToggle
               checked={confirmations[0]}
-              onChange={(e: any) => setConfirmations([e.target.checked, confirmations[1]])}
+              onClick={() => setConfirmations([!confirmations[0], confirmations[1]])}
             />
           </div>
           
@@ -145,7 +268,7 @@ function App() {
             <p>If you lose access to this app, and the backup we will help you create, your bitcoin cannot be recovered.</p>
             <BuiToggle
               checked={confirmations[1]}
-              onChange={(e: any) => setConfirmations([confirmations[0], e.target.checked])}
+              onClick={() => setConfirmations([confirmations[0], !confirmations[1]])}
             />
           </div>
         </div>
@@ -158,7 +281,7 @@ function App() {
           label="Continue"
           wide
           disabled={!confirmations[0] || !confirmations[1]}
-          onClick={() => setCurrentView('wallet')}
+          onClick={handleContinueToWallet}
         />
       </div>
     </div>
@@ -169,6 +292,11 @@ function App() {
       <div className="balance-section">
         <h2>₿ {walletState.balance.toFixed(8)}</h2>
         <p>$ {(walletState.balance * 100000).toFixed(2)}</p>
+        
+        {/* Debug info - remove in production */}
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
+          Wallet saved in localStorage: {localStorage.getItem('ark-wallet') ? '✓' : '✗'}
+        </div>
       </div>
       
       <div className="keypad-section">
@@ -186,6 +314,7 @@ function App() {
           styleType="free"
           size="large"
           label="⚙️"
+          onClick={clearWallet}
         />
         <BuiButton
           styleType="outline"
@@ -275,7 +404,8 @@ function App() {
         <BuiButton
           styleType="outline"
           size="large"
-          label="Share"
+          label="Test Receive"
+          onClick={simulateReceiveBitcoin}
         />
         <BuiButton
           styleType="filled"
